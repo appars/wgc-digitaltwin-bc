@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env/
+
+# IDE/editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+
+# Docker
+*.pid
+*.sock
+docker-compose.override.yml
+
+# Streamlit cache and session state
+.streamlit/
+*.tsv
+*.jl
+
+# Static output / BC JSON history
+static/bc_history/*
+!static/bc_history/.gitkeep
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Archives / build artifacts
+*.zip
+*.tar.gz
+*.egg-info/
+dist/
+build/
+
+# Optional: OpenFOAM export artifacts
+*.foam
+*.foam.gz
+
