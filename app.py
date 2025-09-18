@@ -1,121 +1,98 @@
-# app.py
-import os
-import json
-import time
-from collections import deque
-from datetime import datetime
 
-from flask import Flask, request, jsonify, send_from_directory
+from collections import deque
+from datetime import datetime, timezone
+from typing import List, Dict, Any
+
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 
-# -----------------------
-# Paths / constants
-# -----------------------
-APP_DIR = os.path.dirname(__file__)
-STATIC_DIR = os.path.join(APP_DIR, "static")
-HIST_DIR = os.path.join(STATIC_DIR, "bc_history")
-os.makedirs(HIST_DIR, exist_ok=True)
+from bc_recommender import recommend_bc
 
-# Ring buffer for recent telemetry
-RING_LIMIT = int(os.environ.get("RING_LIMIT", "5000"))
-RING = deque(maxlen=RING_LIMIT)
-
-# -----------------------
-# App init
-# -----------------------
-app = Flask(__name__, static_folder=STATIC_DIR, static_url_path="/static")
+app = Flask(__name__)
 CORS(app)
 
+# In-memory ring buffer
+RING_MAX = 10000
+ring = deque(maxlen=RING_MAX)
 
-# -----------------------
-# Routes
-# -----------------------
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+def _normalize_sample(s: Dict[str, Any]) -> Dict[str, Any]:
+    s = dict(s)
+    # ensure canonical keys exist or are numeric if present
+    for k in ["velocity_m_s", "pressure_Pa", "temperature_K", "density_kg_m3", "rpm", "liquid_volume_fraction"]:
+        if k in s:
+            try:
+                s[k] = float(s[k])
+            except Exception:
+                pass
+    if "rpm" in s:
+        try:
+            s["rpm"] = int(s["rpm"])
+        except Exception:
+            pass
+    # stamp time if missing
+    if "timestamp_utc" not in s:
+        s["timestamp_utc"] = _now_iso()
+    return s
+
 @app.route("/ingest-wgc", methods=["POST"])
-def ingest_wgc():
+def ingest():
     """
-    Accepts a single sample dict OR a list of sample dicts.
-    Stores them in an in-memory ring buffer for quick visualization.
+    Accepts a JSON object or an array of objects with canonical fields:
+    velocity_m_s, pressure_Pa, temperature_K, density_kg_m3, rpm, liquid_volume_fraction
     """
     try:
         payload = request.get_json(force=True, silent=False)
     except Exception as e:
-        return jsonify({"error": f"invalid JSON: {e}"}), 400
+        return jsonify({"ok": False, "error": f"invalid json: {e}"}), 400
 
     if isinstance(payload, dict):
         samples = [payload]
     elif isinstance(payload, list):
         samples = payload
     else:
-        return jsonify({"error": "payload must be a dict or list[dict]"}), 400
+        return jsonify({"ok": False, "error": "payload must be object or array of objects"}), 400
 
+    added = 0
     for s in samples:
-        RING.append(s)
-
-    return jsonify({"status": "ok", "received": len(samples), "buffer_len": len(RING)}), 200
-
+        ring.append(_normalize_sample(s))
+        added += 1
+    return jsonify({"ok": True, "added": added, "size": len(ring)})
 
 @app.route("/recent-wgc", methods=["GET"])
-def recent_wgc():
-    """
-    Returns the last N samples for UI visualization.
-    GET /recent-wgc?limit=200
-    """
+def recent():
     try:
         limit = int(request.args.get("limit", 200))
+        limit = max(1, min(limit, RING_MAX))
     except Exception:
         limit = 200
-    limit = max(1, min(limit, RING_LIMIT))
-    data = list(RING)[-limit:]
-    return jsonify({"count": len(data), "samples": data}), 200
-
+    # return the most recent 'limit' samples
+    data = list(ring)[-limit:]
+    return jsonify({"ok": True, "samples": data, "count": len(data)})
 
 @app.route("/recommend-bc", methods=["POST"])
-def recommend_bc_route():
+def recommend():
     """
-    Accepts a JSON array of samples and returns a BC recommendation.
-    Also saves a timestamped JSON under static/bc_history/ and returns its URL.
+    Expects list[dict] canonical samples. Returns {'bc': {...}}.
     """
-    from bc_recommender import recommend_bc  # local module
+    try:
+        payload = request.get_json(force=True, silent=False)
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"invalid json: {e}"}), 400
 
-    payload = request.get_json(silent=True) or []
-    if not isinstance(payload, list):
-        return jsonify({"error": "payload must be a JSON array (list) of sample objects"}), 400
+    if not isinstance(payload, list) or not payload:
+        return jsonify({"ok": False, "error": "expected a non-empty JSON array of samples"}), 400
 
-    # Compute BC recommendation (your function can be simple or advanced)
-    bc = recommend_bc(payload)
+    try:
+        bc = recommend_bc(payload)
+        return jsonify({"ok": True, "bc": bc})
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"recommender failed: {e}"}), 500
 
-    # Save BC JSON to history with timestamped filename
-    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    fname = f"bc_{ts}.json"
-    fpath = os.path.join(HIST_DIR, fname)
-    with open(fpath, "w") as f:
-        json.dump(bc, f, indent=2)
-
-    # Return both the BC object and a relative download URL
-    return jsonify({
-        "bc": bc,
-        "download": f"/static/bc_history/{fname}"
-    }), 200
-
-
-@app.route("/static/bc_history/<path:filename>")
-def download_bc(filename: str):
-    """
-    Direct download for a previously saved BC JSON.
-    """
-    return send_from_directory(HIST_DIR, filename, as_attachment=True)
-
-
-@app.route("/healthz", methods=["GET"])
-def healthz():
-    return jsonify({"status": "ok", "buffer_len": len(RING)}), 200
-
-
-# -----------------------
-# Main
-# -----------------------
 if __name__ == "__main__":
-    # Default to 5050 since you're using it; change via env PORT if you like
+    # default port 5050 for local dev
+    import os
     port = int(os.environ.get("PORT", "5050"))
-    app.run(host="0.0.0.0", port=port, debug=False)
-
+    app.run(host="0.0.0.0", port=port)

@@ -1,6 +1,6 @@
-
-flask
-flask-cors
-requests
-streamlit
-pandas
+flask==3.0.0
+flask-cors==4.0.0
+pandas==2.2.2
+numpy==1.26.4
+requests==2.32.3
+streamlit==1.37.1
