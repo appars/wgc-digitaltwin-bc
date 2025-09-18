@@ -149,7 +149,7 @@ def main():
     sub = ap.add_subparsers(dest="mode", required=False)
 
     # common defaults
-    default_backend = os.environ.get("BACKEND_URL", "http://backend:5000")
+    default_backend = os.environ.get("BACKEND_URL", "http://backend:5050")
 
     p_syn = sub.add_parser("synthetic")
     p_syn.add_argument("--backend", "-b", default=default_backend)
