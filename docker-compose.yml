@@ -1,20 +1,21 @@
-
-version: '3.8'
 services:
   backend:
-    build: .
+    build:
+      context: .
+    container_name: wgc_backend
     ports:
       - "5000:5000"
     volumes:
       - ./:/app
+    environment:
+      - FLASK_ENV=development
 
   streamlit_ui:
-    image: streamlit/streamlit:latest
+    build:
+      context: ./streamlit
+    container_name: wgc_streamlit
     ports:
       - "8501:8501"
-    volumes:
-      - ./:/app
-    command: streamlit run streamlit_app.py --server.port 8501 --server.headless true
     environment:
       - BACKEND_URL=http://backend:5000
     depends_on:
@@ -23,5 +24,7 @@ services:
   simulator:
     build:
       context: ./simulator
+    container_name: wgc_simulator
     depends_on:
       - backend
+
