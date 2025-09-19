@@ -1,6 +1,6 @@
 # WGC Digital Twin — Live Dashboard & BC Recommender
 
-**Wet Gas Compressor (WGC)** real-time dashboard and **no-ML** boundary-condition recommender for CFD solvers (OpenFOAM first).  
+**Wet Gas Compressor (WGC)** real-time dashboard and boundary-condition recommender for CFD solvers (OpenFOAM first).  
 Simulator streams telemetry → backend aggregates & recommends BC → Streamlit UI visualizes and lets you **download BC JSON**.
 
 ## Key features
@@ -21,11 +21,11 @@ Simulator streams telemetry → backend aggregates & recommends BC → Streamlit
   Health: `https://wgc-digitaltwin-bc-1.onrender.com/recent-wgc`
 
 - **Simulator (Render Web Service)**:  
-  **https://<your-simulator-service>.onrender.com** *(placeholder)*  
-  Health: `https://<your-simulator-service>.onrender.com/health`
+  **https://dashboard.render.com/web/srv-d36erfripnbc739479l0** 
+  Health: `https://dashboard.render.com/web/srv-d36erfripnbc739479l0/health`
 
 - **Streamlit UI (Streamlit Community Cloud)**:  
-  **https://<your-streamlit-app>.streamlit.app** *(placeholder)*
+  **https://https://wgc-digitaltwin-bc-3zhl7gknvuadgvnd64z8nr.streamlit.app/**
 
 **Where to set the UI → backend URL:**  
 In Streamlit Cloud, **Settings → Secrets**:
@@ -225,4 +225,4 @@ streamlit run streamlit_app.py
 ---
 
 ## License
-MIT (adjust if needed)
+Apparsamy Perumal
