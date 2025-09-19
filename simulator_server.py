@@ -7,11 +7,11 @@ thread continuously posts synthetic samples to your backend /ingest-wgc.
 Start command on Render:
   gunicorn simulator_server:app --bind 0.0.0.0:$PORT
 
-Required/optional environment variables:
-  BACKEND_URL       = https://wgc-digitaltwin-bc-1.onrender.com   (your backend)
-  SAMPLE_PERIOD_S   = 0.5          # posting period in seconds (default 0.5)
-  ENABLE_EXTRAS     = true|false   # stream extra process/health fields (default true)
-  SEED              = <int>        # optional, makes sequence repeatable
+Environment variables (all optional):
+  BACKEND_URL       = https://wgc-digitaltwin-bc-1.onrender.com  (default http://localhost:5050)
+  SAMPLE_PERIOD_S   = 0.5      # posting period in seconds (default 0.5). Robust to blank/invalid.
+  ENABLE_EXTRAS     = true     # include extra process/health fields (true/false, default true)
+  SEED              = <int>    # optional, makes sequence repeatable
 """
 
 import os
@@ -25,13 +25,12 @@ from typing import Dict, Any
 import requests
 from flask import Flask, jsonify
 
-# -----------------------------------------------------------------------------
-# Config helpers (robust to missing/blank values)
-# -----------------------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────────────
+# Robust env parsing
+# ──────────────────────────────────────────────────────────────────────────────
 def _get_backend_url() -> str:
     raw = (os.environ.get("BACKEND_URL") or "").strip()
     if not raw:
-        # Sensible fallback for local testing
         raw = "http://localhost:5050"
     return raw.rstrip("/")
 
@@ -61,16 +60,14 @@ INGEST  = f"{BACKEND}/ingest-wgc"
 PERIOD  = _get_period()
 EXTRAS  = _get_extras_flag()
 SEED    = _get_seed()
-
 if SEED is not None:
     random.seed(SEED)
 
-# -----------------------------------------------------------------------------
-# Flask app
-# -----------------------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────────────
+# Flask app + state
+# ──────────────────────────────────────────────────────────────────────────────
 app = Flask(__name__)
 
-# Runtime state (for /health)
 _state = {
     "start_utc": datetime.now(timezone.utc).isoformat(),
     "posted": 0,
@@ -81,10 +78,10 @@ _state = {
 
 _stop_evt = threading.Event()
 
-# -----------------------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────────────
 # Sample generator (canonical + optional extras)
-# -----------------------------------------------------------------------------
-def clamp(x, lo, hi): 
+# ──────────────────────────────────────────────────────────────────────────────
+def clamp(x, lo, hi):
     return max(lo, min(hi, x))
 
 def one_sample(t: float, extras: bool = True) -> Dict[str, Any]:
@@ -109,7 +106,7 @@ def one_sample(t: float, extras: bool = True) -> Dict[str, Any]:
     if not extras:
         return rec
 
-    # Extra downstream, controls, and health (for richer dashboard)
+    # Extra downstream, controls, and health
     P2_bar = (p1 / 1e5) * (1.20 + 0.04 * math.sin(t / 19.0))               # bar
     T2     = T1 + 2.0 + 0.5 * math.sin(t / 31.0)                           # K
     flow   = rho * u * 0.5 * 0.5                                           # kg/s, crude area=0.25 m² (demo)
@@ -138,9 +135,9 @@ def one_sample(t: float, extras: bool = True) -> Dict[str, Any]:
     })
     return rec
 
-# -----------------------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────────────
 # Background poster
-# -----------------------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────────────
 def _pump():
     t0 = time.time()
     s = requests.Session()
@@ -155,7 +152,7 @@ def _pump():
             _state["last_post_utc"] = datetime.now(timezone.utc).isoformat()
         except requests.RequestException as e:
             _state["last_error"] = str(e)
-        # sleep until next tick (responsive to stop)
+        # sleep until next tick; respond to stop immediately
         _stop_evt.wait(PERIOD)
     try:
         s.close()
@@ -166,15 +163,14 @@ def _start_bg():
     th = threading.Thread(target=_pump, daemon=True, name="sim-pump")
     th.start()
 
-# Start the background thread immediately on import
+# Start immediately on import (gunicorn will import the module then serve)
 _start_bg()
 
-# -----------------------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────────────
 # Routes
-# -----------------------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────────────
 @app.route("/health")
 def health():
-    # uptime in seconds
     try:
         started = datetime.fromisoformat(_state["start_utc"])
         uptime_s = (datetime.now(timezone.utc) - started).total_seconds()
@@ -197,14 +193,14 @@ def health():
 def root():
     return jsonify(message="WGC simulator web service. See /health.", health="/health"), 200
 
-# -----------------------------------------------------------------------------
-# Graceful stop hook (if Render sends SIGTERM during deploy)
-# -----------------------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────────────
+# Graceful stop on shutdown/redeploy
+# ──────────────────────────────────────────────────────────────────────────────
 def on_exit():
     _stop_evt.set()
 
 import atexit
 atexit.register(on_exit)
 
-# Gunicorn discovers `app` above.
+# gunicorn discovers `app` automatically
 
