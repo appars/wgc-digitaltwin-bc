@@ -102,7 +102,61 @@ streamlit run streamlit_app.py
 
 ---
 
-## 5) API Endpoints
+## 5) Sample Boundary Condition JSON
+
+```json
+{
+  "gas_model": {
+    "assumed": true,
+    "composition_mol": {
+      "C2H6": 0.05,
+      "CH4": 0.9,
+      "CO2": 0.03,
+      "N2": 0.02
+    },
+    "eos": "perfectGas"
+  },
+  "inlet": {
+    "multiphase": {
+      "lvf": 0.012734
+    },
+    "total_temperature_K": 300.427,
+    "turbulence": {
+      "intensity": 0.07,
+      "length_scale_m": 0.05
+    },
+    "type": "velocity_inlet",
+    "velocity_m_s": 20.4019
+  },
+  "meta": {
+    "frame": "MRF",
+    "schema_version": "1.0",
+    "solver": "openfoam",
+    "units": "SI"
+  },
+  "notes": "Data-driven BC; tweak heuristics as needed. Lean NG gas assumed; outlet pressure estimated from inlet.",
+  "outlet": {
+    "static_pressure_bar": 2.49768,
+    "type": "pressure_outlet"
+  },
+  "rotor": {
+    "speed_rpm": 15045
+  },
+  "validity": {
+    "cv": {
+      "pressure": 0.003,
+      "temperature": 0.0012,
+      "velocity": 0.02
+    },
+    "steady_ok": true,
+    "steady_window_samples": 60
+  }
+}
+```
+
+---
+
+## 6) API Endpoints
 
 - `POST /ingest-wgc` → ingest one sample  
 - `GET /recent-wgc?limit=N` → get samples  
@@ -110,7 +164,7 @@ streamlit run streamlit_app.py
 
 ---
 
-## 6) Solver usage (OpenFOAM)
+## 7) Solver usage (OpenFOAM)
 
 - Map `velocity_m_s` → `U` inlet patch  
 - Map `static_pressure_bar` → outlet patch `p` (convert bar→Pa)  
@@ -119,7 +173,7 @@ streamlit run streamlit_app.py
 
 ---
 
-## 7) Config
+## 8) Config
 
 ### Env vars
 - `BACKEND_URL`  
@@ -132,7 +186,7 @@ streamlit run streamlit_app.py
 
 ---
 
-## 8) For interns
+## 9) For interns
 
 1. Open Streamlit UI → watch KPIs.  
 2. Click **Generate Boundary Conditions** → JSON shown.  
