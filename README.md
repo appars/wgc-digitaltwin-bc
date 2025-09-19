@@ -12,6 +12,29 @@ Simulator streams telemetry → backend aggregates & recommends BC → Streamlit
 
 ---
 
+## 🟢 Current Production (Deployed) Locations
+
+> Update the placeholders once your second Render service (simulator) and Streamlit app are live.
+
+- **Backend (Flask)**:  
+  **https://wgc-digitaltwin-bc-1.onrender.com**  
+  Health: `https://wgc-digitaltwin-bc-1.onrender.com/recent-wgc`
+
+- **Simulator (Render Web Service)**:  
+  **https://<your-simulator-service>.onrender.com** *(placeholder)*  
+  Health: `https://<your-simulator-service>.onrender.com/health`
+
+- **Streamlit UI (Streamlit Community Cloud)**:  
+  **https://<your-streamlit-app>.streamlit.app** *(placeholder)*
+
+**Where to set the UI → backend URL:**  
+In Streamlit Cloud, **Settings → Secrets**:
+```toml
+backend_url = "https://wgc-digitaltwin-bc-1.onrender.com"
+```
+
+---
+
 ## Repo layout
 
 ```
@@ -84,6 +107,11 @@ streamlit run streamlit_app.py
 - **Backend**: Render (Flask, gunicorn app:app)  
 - **Simulator**: Render (gunicorn simulator_server:app)  
 - **UI**: Streamlit Cloud (streamlit_app.py, secret backend_url)
+
+**Render settings (recap)**  
+- Backend Health Check Path: `/recent-wgc`  
+- Simulator Health Check Path: `/health`  
+- Env vars: `PYTHON_VERSION=3.11.9`, `BACKEND_URL`, `SAMPLE_PERIOD_S` (optional), `ENABLE_EXTRAS` (optional)
 
 ---
 
