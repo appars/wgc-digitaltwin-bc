@@ -1,4 +1,4 @@
-name: Keep simulator alive
+name: Keep services alive
 
 on:
   schedule:
@@ -12,10 +12,30 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Curl simulator /health
+      - name: Decide target and ping
+        env:
+          SIMULATOR_URL: ${{ secrets.SIMULATOR_URL }}   # e.g., https://wgc-simulator-xxxxx.onrender.com
+          BACKEND_URL:   ${{ secrets.BACKEND_URL }}     # e.g., https://wgc-digitaltwin-bc-1.onrender.com
         run: |
-          if [ -z "${{ secrets.SIMULATOR_URL }}" ]; then
-            echo "Set SIMULATOR_URL secret to your simulator base URL (e.g., https://simulator-xyz.onrender.com)"
-            exit 1
+          set -euo pipefail
+
+          # Prefer simulator /health if provided
+          if [ -n "${SIMULATOR_URL:-}" ]; then
+            TARGET="${SIMULATOR_URL%/}/health"
+            echo "Pinging simulator: ${TARGET%/*}/health"
+            curl -fsS "$TARGET" >/dev/null
+            exit 0
           fi
-          curl -fsS "${{ secrets.SIMULATOR_URL }}/health" || exit 1
+
+          # Otherwise, try backend /recent-wgc
+          if [ -n "${BACKEND_URL:-}" ]; then
+            TARGET="${BACKEND_URL%/}/recent-wgc"
+            echo "Pinging backend: ${TARGET%/recent-wgc}/recent-wgc"
+            curl -fsS "$TARGET" >/dev/null
+            exit 0
+          fi
+
+          echo "Neither SIMULATOR_URL nor BACKEND_URL is set as an Actions secret."
+          echo "Set one in Settings → Secrets and variables → Actions."
+          exit 1
+
