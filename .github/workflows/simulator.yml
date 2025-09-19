@@ -1,0 +1,101 @@
+name: WGC Simulator (drip to backend)
+
+on:
+  schedule:
+    - cron: "*/1 * * * *"
+  workflow_dispatch:
+    inputs:
+      burst_count:
+        description: "How many samples to send in this run"
+        required: false
+        default: "10"
+      period_s:
+        description: "Seconds between samples"
+        required: false
+        default: "0.5"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wgc-simulator
+  cancel-in-progress: false
+
+jobs:
+  post-samples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BACKEND_URL: ${{ secrets.BACKEND_URL }}
+      BURST_COUNT: ${{ github.event.inputs.burst_count || '10' }}
+      PERIOD_S: ${{ github.event.inputs.period_s || '0.5' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install lightweight deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Post a short burst of samples
+        env:
+          BACKEND_URL: ${{ env.BACKEND_URL }}
+          BURST_COUNT: ${{ env.BURST_COUNT }}
+          PERIOD_S: ${{ env.PERIOD_S }}
+        run: |
+          python - <<'PY'
+          import os, time, math, random
+          from datetime import datetime, timezone
+          import requests
+
+          backend = (os.environ.get("BACKEND_URL") or "").strip()
+          if not backend:
+              raise SystemExit("BACKEND_URL is not set (add a repo secret BACKEND_URL).")
+          ingest = backend.rstrip("/") + "/ingest-wgc"
+
+          try: burst = int(os.environ.get("BURST_COUNT", "10"))
+          except: burst = 10
+          try:
+              period = float(os.environ.get("PERIOD_S", "0.5"))
+              if period <= 0: period = 0.5
+          except: period = 0.5
+
+          def clamp(x, lo, hi): return max(lo, min(hi, x))
+
+          print(f"Posting {burst} samples to {ingest} every {period}s")
+          t0 = time.time()
+          s = requests.Session()
+
+          for i in range(burst):
+              t = time.time() - t0
+              u   = 22.0 + 2.0*math.sin(t/15.0) + random.uniform(-0.4, 0.4)
+              p1  = 2.00e5 + 1200.0*math.sin(t/17.0) + random.uniform(-60, 60)
+              T1  = 300.0 + 0.6*math.sin(t/23.0) + random.uniform(-0.5, 0.5)
+              rho = 1.2 + 0.01*math.sin(t/29.0) + random.uniform(-0.01, 0.01)
+              rpm = int(15000 + 80.0*math.sin(t/12.0) + random.uniform(-20, 20))
+              lvf = clamp(0.01 + 0.003*math.sin(t/21.0) + random.uniform(-0.0015, 0.0015), 0.0, 0.03)
+
+              payload = {
+                  "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+                  "velocity_m_s": round(u, 4),
+                  "pressure_Pa": round(p1, 3),
+                  "temperature_K": round(T1, 3),
+                  "density_kg_m3": round(rho, 4),
+                  "rpm": rpm,
+                  "liquid_volume_fraction": round(lvf, 6),
+              }
+              try:
+                  r = s.post(ingest, json=payload, timeout=10)
+                  print(f"[{i+1}/{burst}] status={r.status_code}")
+              except requests.RequestException as e:
+                  print(f"[{i+1}/{burst}] error: {e}")
+              time.sleep(period)
+
+          print("Done.")
+          PY
