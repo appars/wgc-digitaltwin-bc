@@ -11,31 +11,29 @@ permissions:
 jobs:
   ping:
     runs-on: ubuntu-latest
+    env:
+      # Use Actions secrets if present; otherwise fall back to provided defaults
+      SIMULATOR_URL: ${{ secrets.SIMULATOR_URL || 'https://wgc-digitaltwin-bc-3zhl7gknvuadgvnd64z8nr.streamlit.app' }}
+      BACKEND_URL:   ${{ secrets.BACKEND_URL   || 'https://wgc-digitaltwin-bc-1.onrender.com' }}
     steps:
-      - name: Decide target and ping
-        env:
-          SIMULATOR_URL: ${{ secrets.SIMULATOR_URL }}   # e.g., https://wgc-simulator-xxxxx.onrender.com
-          BACKEND_URL:   ${{ secrets.BACKEND_URL }}     # e.g., https://wgc-digitaltwin-bc-1.onrender.com
+      - name: Ping simulator (UI) and backend (API)
         run: |
           set -euo pipefail
 
-          # Prefer simulator /health if provided
-          if [ -n "${SIMULATOR_URL:-}" ]; then
-            TARGET="${SIMULATOR_URL%/}/health"
-            echo "Pinging simulator: ${TARGET%/*}/health"
-            curl -fsS "$TARGET" >/dev/null
-            exit 0
-          fi
+          # Normalize
+          SIM="${SIMULATOR_URL%%/}"
+          BE="${BACKEND_URL%%/}"
 
-          # Otherwise, try backend /recent-wgc
-          if [ -n "${BACKEND_URL:-}" ]; then
-            TARGET="${BACKEND_URL%/}/recent-wgc"
-            echo "Pinging backend: ${TARGET%/recent-wgc}/recent-wgc"
-            curl -fsS "$TARGET" >/dev/null
-            exit 0
-          fi
+          echo "Simulator URL (UI): $SIM"
+          echo "Backend URL (API):  $BE"
 
-          echo "Neither SIMULATOR_URL nor BACKEND_URL is set as an Actions secret."
-          echo "Set one in Settings → Secrets and variables → Actions."
-          exit 1
+          # 1) Try the Streamlit UI root (200 if alive)
+          echo "Pinging UI (simulator): ${SIM}/"
+          curl -fsS "${SIM}/" >/dev/null || echo "UI ping failed (continuing)"
+
+          # 2) Try backend /recent-wgc (expects 200 JSON)
+          echo "Pinging backend: ${BE}/recent-wgc"
+          curl -fsS "${BE}/recent-wgc" >/dev/null
+
+          echo "Keepalive OK"
 

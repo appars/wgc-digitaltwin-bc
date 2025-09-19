@@ -2,7 +2,7 @@ name: WGC Simulator (drip to backend)
 
 on:
   schedule:
-    - cron: "*/1 * * * *"
+    - cron: "*/1 * * * *"   # every minute
   workflow_dispatch:
     inputs:
       burst_count:
@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      BACKEND_URL: ${{ secrets.BACKEND_URL }}
+      BACKEND_URL: ${{ secrets.BACKEND_URL || 'https://wgc-digitaltwin-bc-1.onrender.com' }}
       BURST_COUNT: ${{ github.event.inputs.burst_count || '10' }}
       PERIOD_S: ${{ github.event.inputs.period_s || '0.5' }}
     steps:
@@ -54,10 +54,8 @@ jobs:
           from datetime import datetime, timezone
           import requests
 
-          backend = (os.environ.get("BACKEND_URL") or "").strip()
-          if not backend:
-              raise SystemExit("BACKEND_URL is not set (add a repo secret BACKEND_URL).")
-          ingest = backend.rstrip("/") + "/ingest-wgc"
+          backend = (os.environ.get("BACKEND_URL") or "https://wgc-digitaltwin-bc-1.onrender.com").rstrip("/")
+          ingest = backend + "/ingest-wgc"
 
           try: burst = int(os.environ.get("BURST_COUNT", "10"))
           except: burst = 10
@@ -99,3 +97,4 @@ jobs:
 
           print("Done.")
           PY
+
