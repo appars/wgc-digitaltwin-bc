@@ -14,18 +14,19 @@ Simulator streams telemetry → backend aggregates & recommends BC → Streamlit
 
 ## 🟢 Current Production (Deployed) Locations
 
-> Update the placeholders once your second Render service (simulator) and Streamlit app are live.
 
+- **Wet Gas Compressor (WGC) - BC Recommender**:  
+  **https://wgc-digitaltwin-bc-3zhl7gknvuadgvnd64z8nr.streamlit.app/**
+  
 - **Backend (Flask)**:  
   **https://wgc-digitaltwin-bc-1.onrender.com**  
   Health: `https://wgc-digitaltwin-bc-1.onrender.com/recent-wgc`
 
 - **Simulator (Render Web Service)**:  
-  **https://dashboard.render.com/web/srv-d36erfripnbc739479l0** 
-  Health: `https://dashboard.render.com/web/srv-d36erfripnbc739479l0/health`
+  **https://dashboard.render.com/web/srv-d36erfripnbc739479l0** \
+  Health: `https://dashboard.render.com/web/srv-d36erfripnbc739479l0/health`  
 
-- **Streamlit UI (Streamlit Community Cloud)**:  
-  **https://https://wgc-digitaltwin-bc-3zhl7gknvuadgvnd64z8nr.streamlit.app/**
+
 
 **Where to set the UI → backend URL:**  
 In Streamlit Cloud, **Settings → Secrets**:
@@ -219,7 +220,7 @@ streamlit run streamlit_app.py
 1. Open Streamlit UI → watch KPIs.  
 2. Click **Generate Boundary Conditions** → JSON shown.  
 3. Download BC JSON.  
-4. Use converter script to create OpenFOAM case `0/` files.  
+4. Use the converter script to create OpenFOAM case `0/` files.  
 5. Run solver, verify residuals, pressure ratio, mass flow.
 
 ---
